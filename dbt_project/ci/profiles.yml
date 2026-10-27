@@ -1,0 +1,13 @@
+# Profile used by CI only (dbt --profiles-dir ci). Locally, use ~/.dbt/profiles.yml.
+dbt_project:
+  target: ci
+  outputs:
+    ci:
+      type: postgres
+      host: "{{ env_var('POSTGRES_HOST', 'localhost') }}"
+      port: "{{ env_var('POSTGRES_PORT', '5432') | as_number }}"
+      user: "{{ env_var('POSTGRES_USER', 'postgres') }}"
+      password: "{{ env_var('POSTGRES_PASSWORD') }}"
+      dbname: "{{ env_var('POSTGRES_DB', 'github_analytics') }}"
+      schema: public
+      threads: 4

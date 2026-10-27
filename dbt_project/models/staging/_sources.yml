@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    tables:
+      - name: raw_repos
+      - name: raw_contributors
+      - name: raw_pull_requests
+      - name: raw_issues
+      - name: raw_commits
+      - name: raw_users

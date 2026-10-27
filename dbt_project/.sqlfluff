@@ -1,0 +1,20 @@
+[sqlfluff]
+dialect = postgres
+templater = dbt
+max_line_length = 120
+exclude_rules = LT01, LT02, LT05, LT12, ST06, AM04, RF04
+
+[sqlfluff:templater:dbt]
+project_dir = .
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.types]
+extended_capitalisation_policy = lower

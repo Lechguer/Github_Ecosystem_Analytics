@@ -1,0 +1,151 @@
+version: 2
+
+models:
+  - name: dim_repo
+    description: >
+      Dimension des repos GitHub suivis (duckdb/duckdb, dbt-labs/dbt, apache/airflow).
+      Une ligne par repo, avec ses metadonnees (langage, stars, forks).
+    columns:
+      - name: repo_key
+        description: Surrogate key, cle technique utilisee par les fact tables.
+        tests:
+          - unique
+          - not_null
+      - name: repo_id
+        description: Natural key, l'ID du repo tel que fourni par l'API GitHub.
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_contributor
+    description: >
+      Dimension SCD Type 2 des contributeurs. Chaque changement de company ou location
+      genere une nouvelle version (voir contributors_snapshot). is_current indique
+      la version actuelle. La ligne contributor_key = -1 ('(unknown)') est le membre
+      "inconnu" (Kimball) auquel sont rattaches les faits dont l'auteur est absent
+      de la dimension, au lieu d'une cle etrangere NULL.
+    columns:
+      - name: contributor_key
+        description: Surrogate key. Un meme contributeur peut avoir plusieurs contributor_key
+          au fil du temps si ses attributs SCD2 changent.
+        tests:
+          - unique
+          - not_null
+      - name: is_bot
+        description: >
+          True si le login se termine par [bot] (github-actions[bot], dependabot[bot]...).
+          Permet d'exclure les comptes automatiques des analyses.
+        tests:
+          - not_null
+
+  - name: fct_pull_requests
+    description: >
+      Fact table transactionnelle, grain = 1 pull request. Mesure principale :
+      time_to_merge_hours (NULL si la PR n'a jamais ete mergee).
+    columns:
+      - name: pr_id
+        description: Identifiant unique de la PR.
+        tests:
+          - unique
+          - not_null
+      - name: repo_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_repo')
+                field: repo_key
+      - name: contributor_key
+        description: FK vers dim_contributor, -1 si l'auteur est inconnu.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_contributor')
+                field: contributor_key
+
+  - name: fct_issue_lifecycle
+    description: >
+      Accumulating snapshot fact table, grain = 1 issue. Suit le cycle de vie
+      de la creation a la fermeture. labels contient tous les labels de l'issue
+      (array, via bridge_issue_label).
+    columns:
+      - name: issue_id
+        description: Identifiant unique de l'issue.
+        tests:
+          - unique
+          - not_null
+      - name: repo_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_repo')
+                field: repo_key
+      - name: contributor_key
+        description: FK vers dim_contributor, -1 si l'auteur est inconnu.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_contributor')
+                field: contributor_key
+
+  - name: fct_commits
+    description: >
+      Fact table transactionnelle, grain = 1 commit. Liee a dim_date via
+      authored_at::date.
+    columns:
+      - name: commit_sha
+        description: SHA du commit Git, identifiant unique.
+        tests:
+          - unique
+          - not_null
+      - name: repo_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_repo')
+                field: repo_key
+      - name: contributor_key
+        description: FK vers dim_contributor, -1 si l'auteur est inconnu.
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_contributor')
+                field: contributor_key
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+
+  - name: dim_date
+    description: Dimension date generee (generate_series), couvre 2015-2026.
+
+  - name: dim_label
+    description: Dimension des labels GitHub uniques, deduplique depuis int_issue_labels.
+    columns:
+      - name: label_key
+        description: Surrogate key.
+        tests:
+          - unique
+          - not_null
+
+  - name: bridge_issue_label
+    description: >
+      Bridge table pour la relation many-to-many entre issues et labels.
+      1 ligne par combinaison (issue, label).
+    columns:
+      - name: issue_id
+        description: FK vers fct_issue_lifecycle.issue_id.
+        tests:
+          - not_null
+      - name: label_key
+        description: FK vers dim_label.label_key.
+        tests:
+          - not_null
