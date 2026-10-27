@@ -1,0 +1,10 @@
+.env
+*.json
+!package.json
+data/
+__pycache__/
+*.pyc
+.venv/
+logs/
+airflow/logs/
+airflow/config/
