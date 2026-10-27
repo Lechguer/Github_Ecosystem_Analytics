@@ -1,10 +1,10 @@
-﻿# GitHub Ecosystem Analytics
+# GitHub Ecosystem Analytics
 
 An end-to-end ELT pipeline that extracts activity data from the GitHub REST API for three major open-source data projects (`duckdb/duckdb`, `dbt-labs/dbt-core`, `apache/airflow`), models it into a star schema in PostgreSQL with dbt, and answers real questions about how these communities work.
 
-![CI](https://github.com/Lechguer/Github_Ecosystem_Analytics/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/Lechguer/Github_Ecosystem_Analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/Lechguer/Github_Ecosystem_Analytics/actions/workflows/ci.yml)
 
-**Stack:** Python Â· PostgreSQL (Docker) Â· dbt Â· Dagster Â· GitHub Actions Â· (Airflow DAG as a reference comparison)
+**Stack:** Python · PostgreSQL (Docker) · dbt · Dagster · GitHub Actions · (Airflow DAG as a reference comparison)
 
 ![Sketchnote recap](docs/images/sketchnote.png)
 
@@ -29,9 +29,9 @@ Most pipeline demos stop at "data loaded". This one goes the full way: increment
 ### Pipeline flow
 
 ```
-GitHub API â”€â–º Python extractors â”€â–º raw (JSONB) â”€â–º dbt staging â”€â–º dbt marts â”€â–º analyses
+GitHub API ─► Python extractors ─► raw (JSONB) ─► dbt staging ─► dbt marts ─► analyses
                 (incremental)      (idempotent)     (clean)     (star schema)
-                                         â–²
+                                         ▲
                                   Dagster orchestrates every step
 ```
 
@@ -39,13 +39,13 @@ GitHub API â”€â–º Python extractors â”€â–º raw (JSONB) â”�
 
 ![Star schema](docs/images/star_schema.png)
 
-- **Dimensions:** `dim_repo`, `dim_date` (2015â€“2026 spine), `dim_label` (64 labels), `dim_contributor` (**SCD Type 2** on `company` / `location`, with an `is_bot` flag). `dim_repo` and `dim_contributor` each contain an **unknown member** (`key = -1`).
+- **Dimensions:** `dim_repo`, `dim_date` (2015–2026 spine), `dim_label` (64 labels), `dim_contributor` (**SCD Type 2** on `company` / `location`, with an `is_bot` flag). `dim_repo` and `dim_contributor` each contain an **unknown member** (`key = -1`).
 - **Bridge:** `bridge_issue_label` (many-to-many between issues and labels)
 - **Facts:**
   - All facts are incremental dbt models (`unique_key` + `is_incremental()` on `loaded_at`).
-  - `fct_commits` â€” grain: one row per commit
-  - `fct_pull_requests` â€” grain: one row per PR, with `time_to_merge_hours`
-  - `fct_issue_lifecycle` â€” **accumulating snapshot**, one row per issue, with all labels aggregated into an array without breaking the grain
+  - `fct_commits` — grain: one row per commit
+  - `fct_pull_requests` — grain: one row per PR, with `time_to_merge_hours`
+  - `fct_issue_lifecycle` — **accumulating snapshot**, one row per issue, with all labels aggregated into an array without breaking the grain
 
 ---
 
@@ -69,7 +69,7 @@ GitHub API â”€â–º Python extractors â”€â–º raw (JSONB) â”�
 
 ### Orchestration (Dagster)
 
-Asset graph: `extracted_{repos,commits,pull_requests,issues,contributors}` and `extracted_users` (which depends on `extracted_contributors`) all feed `raw_loaded` â†’ `dbt_staging` â†’ `dbt_snapshot` â†’ `dbt_marts` â†’ `dbt_tests_passed`.
+Asset graph: `extracted_{repos,commits,pull_requests,issues,contributors}` and `extracted_users` (which depends on `extracted_contributors`) all feed `raw_loaded` → `dbt_staging` → `dbt_snapshot` → `dbt_marts` → `dbt_tests_passed`.
 
 ![Dagster asset graph](docs/images/dagster_graph.png)
 
@@ -95,7 +95,7 @@ Current volumes after incremental runs: 887 contributors, 1,145 commits, 1,346 p
 
 **3. Issue resolution time (average):** airflow **22.9 h** < duckdb **61.2 h** < dbt-core **150.0 h**. dbt-core also has by far the most granular label taxonomy (`area:*`, `engine:v2`, `status:triage`).
 
-**4. Cross-repo activity over time:** not conclusive. The extraction window only covers Augâ€“Sep 2026, too short to show a trend (see limitations).
+**4. Cross-repo activity over time:** not conclusive. The extraction window only covers Aug–Sep 2026, too short to show a trend (see limitations).
 
 **Data surprises worth noting:**
 - The real PR rejection rate is about **26%** (197 closed-unmerged out of 750 closed PRs), once open PRs are excluded. The naive "not merged" count is misleading.
@@ -108,7 +108,7 @@ Current volumes after incremental runs: 887 contributors, 1,145 commits, 1,346 p
 
 - **Contributor cap:** extraction is limited to the top 300 contributors per repo, so about **23% of fact rows point to the unknown member (`contributor_key = -1`)** (occasional contributors outside the top 300). This is a deliberate tradeoff, not a bug. Per-contributor analyses are only meaningful on the remaining 77%.
 - **Short time window:** the extraction cap (5 pages of 100 items per repo) limits history: PRs start on 6 Aug 2026 and issues on 23 Aug 2026, which is why analysis 4 is inconclusive.
-- **Small samples:** issue resolution stats rely on 11â€“32 closed issues per repo. Treat them as indicative.
+- **Small samples:** issue resolution stats rely on 11–32 closed issues per repo. Treat them as indicative.
 - **Bots** are kept in `dim_contributor` and flagged with `is_bot`; bots outside the top 300 fall into the unknown member and cannot be flagged.
 - **Airflow DAG** is a reference artifact and has not been run.
 
@@ -118,12 +118,12 @@ Current volumes after incremental runs: 887 contributors, 1,145 commits, 1,346 p
 
 ```bash
 # 1. Environment
-cp .env.example .env          # add GITHUB_TOKEN (classic PAT: repo, read:org)
+cp .env.example .env          # add GITHUB_TOKEN (a token with no scope is enough: public repos only)
 docker compose up -d          # PostgreSQL (github_analytics, port 5432)
 pip install -r requirements.txt
 pip install dbt-postgres dagster dagster-webserver
 
-# 2. Pipeline (manually) â€” order matters: users needs contributors
+# 2. Pipeline (manually) — order matters: users needs contributors
 cd extraction
 python extract_repos.py
 python extract_contributors.py
@@ -153,33 +153,27 @@ After changing a fact model, rebuild it with `dbt run --full-refresh`.
 
 ```
 .
-â”œâ”€â”€ .env.example
-â”œâ”€â”€ docker-compose.yml          # PostgreSQL
-â”œâ”€â”€ requirements.txt
-â”œâ”€â”€ extraction/
-â”‚   â”œâ”€â”€ github_client.py
-â”‚   â”œâ”€â”€ extract_{repos,contributors,users,commits,pull_requests,issues}.py
-â”‚   â””â”€â”€ load_to_postgres.py
-â”œâ”€â”€ .github/workflows/ci.yml
-â”œâ”€â”€ requirements-ci.txt
-â”œâ”€â”€ dbt_project/
-â”‚   â”œâ”€â”€ models/{staging,intermediate,marts}/
-â”‚   â”œâ”€â”€ analyses/               # the 4 analyses as SQL
-â”‚   â”œâ”€â”€ ci/                     # CI profile + synthetic raw data
-â”‚   â”œâ”€â”€ snapshots/contributors_snapshot.sql
-â”‚   â”œâ”€â”€ macros/{generate_schema_name,stable_key}.sql
-â”‚   â””â”€â”€ tests/
-â”œâ”€â”€ dagster_project/github_ecosystem_dagster/   # assets.py, definitions.py
-â”œâ”€â”€ airflow/                    # dags/github_ecosystem_dag.py + docker-compose.yaml, reference only
-â””â”€â”€ docs/
-    â”œâ”€â”€ architecture.drawio
-    â””â”€â”€ images/
+├── .env.example
+├── .github/workflows/ci.yml
+├── docker-compose.yml          # PostgreSQL
+├── requirements.txt
+├── requirements-ci.txt
+├── extraction/
+│   ├── github_client.py
+│   ├── extract_{repos,contributors,users,commits,pull_requests,issues}.py
+│   └── load_to_postgres.py
+├── dbt_project/
+│   ├── models/{staging,intermediate,marts}/
+│   ├── analyses/               # the 4 analyses as SQL
+│   ├── ci/                     # CI profile + synthetic raw data
+│   ├── snapshots/contributors_snapshot.sql
+│   ├── macros/{generate_schema_name,stable_key}.sql
+│   └── tests/
+├── dagster_project/github_ecosystem_dagster/   # assets.py, definitions.py
+├── airflow/                    # dags/github_ecosystem_dag.py + docker-compose.yaml, reference only
+└── docs/
+    ├── architecture.drawio
+    └── images/
 ```
 
 ---
-
-## What I would do next
-
-- Raise the extraction cap to get a real time series for analysis 4
-- Add `dbt source freshness` checks and alerting on Dagster failures
-- Run the Airflow + Cosmos version on a machine with enough RAM
